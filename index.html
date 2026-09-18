@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation Spin the Wheel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;800&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .brand-font {
+            font-family: 'Fredoka One', cursive;
+            letter-spacing: 1px;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            aspect-ratio: 1;
+            margin: 0 auto;
+            filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.2));
+        }
+
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: transform 3s cubic-bezier(0.17, 0.67, 0.1, 1);
+            border: 8px solid white;
+            box-sizing: border-box;
+            background-color: white; /* Fallback */
+        }
+
+        .wheel-marker {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 35px solid #ef4444; /* Tailwind red-500 */
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .prompt-card {
+            animation: popIn 0.5s cubic-bezier(0.17, 0.67, 0.83, 1.2) forwards;
+            display: none; /* Hidden by default */
+        }
+        
+        .prompt-card.active {
+            display: flex;
+        }
+
+        .btn-primary {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4), 0 2px 4px -1px rgba(79, 70, 229, 0.2);
+        }
+        .btn-primary:hover {
+            background-color: #4338ca; /* indigo-700 */
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4), 0 4px 6px -2px rgba(79, 70, 229, 0.2);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        .btn-primary:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+    </style>
+</head>
+<body class="text-gray-800 p-4 sm:p-8">
+
+    <header class="text-center mb-8">
+        <h1 class="text-4xl sm:text-5xl md:text-6xl text-white drop-shadow-md mb-2">Let's Talk!</h1>
+        <p class="text-lg text-white font-semibold opacity-90">Spin the wheel to get a conversation topic.</p>
+    </header>
+
+    <main class="flex-grow flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 max-w-6xl mx-auto w-full">
+        
+        <div class="flex flex-col items-center w-full md:w-1/2">
+            <div class="wheel-container mb-6">
+                <div class="wheel-marker"></div>
+                <canvas id="wheelCanvas" width="500" height="500"></canvas>
+            </div>
+            
+            <button id="spinBtn" class="btn-primary brand-font text-2xl py-3 px-12 rounded-full border-4 border-indigo-300">
+                <i class="fas fa-sync-alt mr-2"></i> SPIN!
+            </button>
+        </div>
+
+        <div class="w-full md:w-1/2 flex flex-col justify-center items-center min-h-[300px]">
+            
+            <!-- Default placeholder before spinning -->
+            <div id="placeholder" class="text-center bg-white/50 backdrop-blur-sm p-8 rounded-2xl border-2 border-white/60 shadow-xl w-full max-w-md">
+                <i class="fas fa-comments text-6xl text-indigo-400 mb-4 opacity-50"></i>
+                <h2 class="text-2xl text-gray-700">Ready to chat?</h2>
+                <p class="text-gray-500 mt-2">Click SPIN to find out what we're talking about today!</p>
+            </div>
+
+            <div id="promptArea" class="prompt-card flex-col bg-white p-6 sm:p-8 rounded-3xl shadow-2xl border-4 border-white w-full max-w-md relative overflow-hidden">
+                <div id="categoryIcon" class="absolute -top-4 -right-4 text-8xl opacity-10"></div>
+                
+                <div class="relative z-10 flex flex-col h-full">
+                    <div class="mb-4 inline-block">
+                        <span id="categoryLabel" class="brand-font text-sm uppercase tracking-wider px-3 py-1 rounded-full text-white bg-indigo-500 shadow-sm">
+                            Category
+                        </span>
+                    </div>
+                    
+                    <h3 id="englishPrompt" class="text-2xl sm:text-3xl font-bold text-gray-800 leading-tight mb-6 flex-grow">
+                        Question goes here?
+                    </h3>
+                    
+                    <div id="translationArea" class="hidden mb-6 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <p class="text-sm font-bold text-yellow-800 mb-1">Traditional Chinese (繁體中文):</p>
+                        <p id="chinesePrompt" class="text-lg text-gray-700 font-medium">
+                            中文翻譯在這裡。
+                        </p>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mt-auto border-t border-gray-100 pt-4">
+                        <button id="translateBtn" class="flex items-center text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                            <i class="fas fa-language text-lg mr-2"></i> 
+                            <span id="translateText">Translate</span>
+                        </button>
+                        
+                        <button id="nextQuestionBtn" class="flex items-center text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors hidden">
+                            Next Question <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="text-center mt-8 text-white/80 text-sm">
+        <p>Practice makes perfect! Enjoy your conversation.</p>
+    </footer>
+
+    <script>
+        // Data structure for categories and prompts
+        const gameData = [
+            {
+                name: "School Life",
+                color: "#FF595E", // Red
+                icon: "fa-school",
+                prompts: [
+                    { en: "If you could change one school rule, what would it be?", zh: "如果你能改變一條校規，會是什麼？" },
+                    { en: "What if you could design your own locker any way you wanted? What would it look like?", zh: "如果你可以隨心所欲地設計你自己的置物櫃，它會長什麼樣子？" },
+                    { en: "What is your favorite subject and why?", zh: "你最喜歡的科目是什麼？為什麼？" },
+                    { en: "If homework was banned forever, how would you spend your time?", zh: "如果永遠禁止出作業，你會怎麼度過你的時間？" }
+                ]
+            },
+            {
+                name: "Hobbies",
+                color: "#FFCA3A", // Yellow
+                icon: "fa-gamepad",
+                prompts: [
+                    { en: "What do you like to do in your free time?", zh: "你有空的時候喜歡做什麼？" },
+                    { en: "If you could instantly master any skill, what would it be and why?", zh: "如果你能瞬間精通一項技能，會是什麼？為什麼？" },
+                    { en: "What is a hobby you tried but didn't like?", zh: "有什麼嗜好是你嘗試過但不喜歡的？" },
+                    { en: "Do you prefer playing sports, playing video games, or reading?", zh: "你比較喜歡做運動、打電動還是看書？" }
+                ]
+            },
+            {
+                name: "Friends",
+                color: "#8AC926", // Green
+                icon: "fa-user-friends",
+                prompts: [
+                    { en: "What makes someone a good friend?", zh: "具備什麼條件才算是一個好朋友？" },
+                    { en: "Describe the best day you've ever had with your friends.", zh: "描述一次你和朋友度過最棒的一天。" },
+                    { en: "What is the funniest thing a friend has ever done?", zh: "你朋友做過最搞笑的事情是什麼？" },
+                    { en: "Would you rather have one best friend or many good friends?", zh: "你寧願有一個最好的朋友，還是很多好朋友？" }
+                ]
+            },
+            {
+                name: "Food",
+                color: "#1982C4", // Blue
+                icon: "fa-hamburger",
+                prompts: [
+                    { en: "If you could only eat one food for the rest of your life, what would it be?", zh: "如果你餘生只能吃一種食物，你會選什麼？" },
+                    { en: "What is the most disgusting food you've ever tried?", zh: "你嘗試過最噁心的食物是什麼？" },
+                    { en: "If you could invent a new ice cream flavor, what would it be?", zh: "如果你能發明一種新口味的冰淇淋，會是什麼？" },
+                    { en: "Would you rather have pizza for every meal or ice cream for every dessert?", zh: "你寧願每餐都吃披薩，還是每餐的甜點都是冰淇淋？" }
+                ]
+            },
+            {
+                name: "Future Dreams",
+                color: "#6A4C93", // Purple
+                icon: "fa-rocket",
+                prompts: [
+                    { en: "What job do you want to have when you grow up?", zh: "你長大後想做什麼工作？" },
+                    { en: "If you could invent something to make life easier, what would it be?", zh: "如果你能發明一樣讓生活更輕鬆的東西，會是什麼？" },
+                    { en: "Where do you see yourself in 10 years?", zh: "你覺得10年後的你會在哪裡、做些什麼？" },
+                    { en: "Would you rather be famous for your talent or incredibly wealthy but unknown?", zh: "你寧願因為才華而出名，還是非常富有但默默無聞？" }
+                ]
+            },
+            {
+                name: "Movies & TV",
+                color: "#F15BB5", // Pink
+                icon: "fa-film",
+                prompts: [
+                    { en: "What is the best movie or TV show you watched recently?", zh: "你最近看過最棒的電影或電視節目是什麼？" },
+                    { en: "If you could live in any fictional world from a movie, which one would it be?", zh: "如果你能住在電影裡的任何一個虛構世界，你會選哪一個？" },
+                    { en: "Who is your favorite fictional character and why?", zh: "你最喜歡的虛構角色是誰？為什麼？" },
+                    { en: "Would you rather be the hero or the villain in a movie?", zh: "你寧願在電影裡當英雄還是反派？" }
+                ]
+            },
+            {
+                name: "Travel",
+                color: "#00BBF9", // Light Blue
+                icon: "fa-plane",
+                prompts: [
+                    { en: "If you could travel anywhere in the world tomorrow, where would you go?", zh: "如果你明天可以去世界上任何地方旅行，你會去哪裡？" },
+                    { en: "Do you prefer visiting big cities or natural places like mountains or beaches?", zh: "你比較喜歡去大城市還是大自然（如山區、海灘）？" },
+                    { en: "What is the most interesting place you have ever visited?", zh: "你去過最有趣的地方是哪裡？" },
+                    { en: "Would you rather travel to the past or the future?", zh: "你寧願去過去還是未來的旅行？" }
+                ]
+            },
+            {
+                name: "Superpowers",
+                color: "#00F5D4", // Mint
+                icon: "fa-bolt",
+                prompts: [
+                    { en: "If you could have any superpower, what would it be and why?", zh: "如果你能擁有任何超能力，會是什麼？為什麼？" },
+                    { en: "Would you rather be able to fly or be invisible?", zh: "你寧願能飛還是能隱形？" },
+                    { en: "If you could read minds for one day, whose mind would you read?", zh: "如果你能讀心一天，你想讀誰的心？" },
+                    { en: "Would you rather have super speed or super strength?", zh: "你寧願跑得超快還是力氣超大？" }
+                ]
+            },
+            {
+                name: "Animals",
+                color: "#F4A261", // Orange
+                icon: "fa-paw",
+                prompts: [
+                    { en: "If you could be any animal for a day, what would you be?", zh: "如果你能當一天的某種動物，你想當什麼？" },
+                    { en: "If you could talk to animals, what would you ask them?", zh: "如果你能跟動物說話，你會問牠們什麼？" },
+                    { en: "What is the scariest animal in your opinion?", zh: "你認為最可怕的動物是什麼？" },
+                    { en: "Would you rather have a pet dragon or a pet dinosaur?", zh: "你寧願養一隻寵物龍還是一隻寵物恐龍？" }
+                ]
+            },
+            {
+                name: "Would You Rather",
+                color: "#9D4EDD", // Deep Purple
+                icon: "fa-balance-scale-left",
+                prompts: [
+                    { en: "Would you rather always be 10 minutes late or always be 20 minutes early?", zh: "你寧願總是遲到10分鐘，還是總是早到20分鐘？" },
+                    { en: "Would you rather live without music or without television?", zh: "你寧願生活沒有音樂還是沒有電視？" },
+                    { en: "Would you rather have a pause button for your life or a rewind button?", zh: "你希望你的人生有一個暫停鍵還是一個倒轉鍵？" },
+                    { en: "Would you rather never have homework or never have a test again?", zh: "你寧願永遠沒有作業，還是永遠不用再考試？" }
+                ]
+            },
+            {
+                name: "What If...",
+                color: "#E63946", // Crimson
+                icon: "fa-question",
+                prompts: [
+                    { en: "What if you woke up tomorrow and your entire life was a dream? What would you do?", zh: "如果你明天醒來發現你整個人生都是一場夢，你會怎麼做？" },
+                    { en: "What if you found a genie in a bottle? What 3 wishes would you ask for?", zh: "如果你找到了一個神燈精靈，你會許哪3個願望？" },
+                    { en: "What if social media didn't exist? How would things be different?", zh: "如果社群媒體不存在，事情會有什麼不同？" },
+                    { en: "What if everything you touched turned to chocolate?", zh: "如果你碰到的每樣東西都變成巧克力怎麼辦？" }
+                ]
+            },
+            {
+                name: "Music",
+                color: "#2A9D8F", // Teal
+                icon: "fa-music",
+                prompts: [
+                    { en: "Who is your favorite singer or band right now?", zh: "你目前最喜歡的歌手或樂團是誰？" },
+                    { en: "If you could play any musical instrument perfectly, what would you choose?", zh: "如果你能完美地演奏任何樂器，你會選什麼？" },
+                    { en: "What song always puts you in a good mood?", zh: "哪首歌總是能讓你心情變好？" },
+                    { en: "Would you rather be an amazing singer or an amazing dancer?", zh: "你寧願當一個很棒的歌手，還是一個很棒的舞者？" }
+                ]
+            },
+            {
+                name: "Embarrassing Moments",
+                color: "#E9C46A", // Sand
+                icon: "fa-flushed",
+                prompts: [
+                    { en: "What is the most embarrassing thing that has happened to you at school?", zh: "你在學校發生過最尷尬的事情是什麼？" },
+                    { en: "Have you ever laughed so hard you snorted or cried?", zh: "你有沒有笑得太開心，結果發出豬叫聲或流眼淚過？" },
+                    { en: "What is a silly mistake you make all the time?", zh: "你有什麼經常犯的愚蠢錯誤？" },
+                    { en: "Would you rather trip and fall in front of your crush or send them a text meant for someone else?", zh: "你寧願在你暗戀的人面前跌倒，還是把要傳給別人的訊息傳給他們？" }
+                ]
+            },
+            {
+                name: "Family",
+                color: "#F4A261", // Light Orange
+                icon: "fa-home",
+                prompts: [
+                    { en: "Who is the funniest person in your family and why?", zh: "你家裡最幽默的人是誰？為什麼？" },
+                    { en: "What is your favorite family tradition?", zh: "你最喜歡的家庭傳統是什麼？" },
+                    { en: "If you could make one rule that your whole family had to follow, what would it be?", zh: "如果你能訂一條全家人都必須遵守的規定，會是什麼？" },
+                    { en: "Would you rather have 10 siblings or be an only child?", zh: "你寧願有10個兄弟姊妹還是當獨生子女？" }
+                ]
+            },
+            {
+                name: "Fears",
+                color: "#264653", // Dark Blue
+                icon: "fa-ghost",
+                prompts: [
+                    { en: "What is your biggest fear?", zh: "你最害怕的是什麼？" },
+                    { en: "Are you more scared of spiders, snakes, or heights?", zh: "你比較怕蜘蛛、蛇還是高處？" },
+                    { en: "What is a nightmare that you still remember?", zh: "你有什麼至今還記得的惡夢？" },
+                    { en: "Would you rather sleep in a haunted house or spend a night alone in a dark forest?", zh: "你寧願在鬼屋睡一晚，還是獨自在黑暗的森林裡待一晚？" }
+                ]
+            },
+            {
+                name: "Money",
+                color: "#2DC653", // Dollar Green
+                icon: "fa-money-bill-wave",
+                prompts: [
+                    { en: "If you won $1,000,000 today, what is the first thing you would buy?", zh: "如果你今天贏了100萬美元，你第一件會買的東西是什麼？" },
+                    { en: "Do you prefer to save your money or spend it right away?", zh: "你喜歡存錢還是馬上花掉？" },
+                    { en: "If you could start your own business, what would you sell?", zh: "如果你能自己創業，你會賣什麼？" },
+                    { en: "Would you rather be rich but have no friends, or poor but have amazing friends?", zh: "你寧願很富有但沒有朋友，還是很窮但有很棒的朋友？" }
+                ]
+            },
+            {
+                name: "Technology",
+                color: "#4361EE", // Indigo
+                icon: "fa-mobile-alt",
+                prompts: [
+                    { en: "What is your favorite app on your phone and why?", zh: "你手機裡最喜歡的應用程式是什麼？為什麼？" },
+                    { en: "Could you survive a week without your smartphone? Why or why not?", zh: "你能一個禮拜不用智慧型手機嗎？為什麼能或不能？" },
+                    { en: "What do you think smartphones will look like in 50 years?", zh: "你覺得50年後的智慧型手機會長什麼樣子？" },
+                    { en: "Would you rather give up the internet or video games for a year?", zh: "你寧願放棄網路一年，還是放棄打電動一年？" }
+                ]
+            },
+            {
+                name: "Sports & Games",
+                color: "#EF233C", // Red
+                icon: "fa-basketball-ball",
+                prompts: [
+                    { en: "What is your favorite sport to play or watch?", zh: "你最喜歡玩或看什麼運動？" },
+                    { en: "Are you a competitive person when playing games?", zh: "你在玩遊戲時是個好勝心強的人嗎？" },
+                    { en: "If you could be an Olympic athlete, what sport would you compete in?", zh: "如果你能成為奧運選手，你想參加什麼運動項目？" },
+                    { en: "Would you rather always win but the game is boring, or always lose but the game is fun?", zh: "你寧願總是贏但遊戲很無聊，還是總是輸但遊戲很好玩？" }
+                ]
+            },
+            {
+                name: "Books & Stories",
+                color: "#B5179E", // Magenta
+                icon: "fa-book",
+                prompts: [
+                    { en: "What is the best book or comic you have ever read?", zh: "你看過最棒的書或漫畫是什麼？" },
+                    { en: "If you wrote a book, what would it be about?", zh: "如果你寫了一本書，內容會是關於什麼？" },
+                    { en: "Which fictional character do you wish was your best friend?", zh: "你希望哪個虛構角色是你最好的朋友？" },
+                    { en: "Would you rather read the book first or watch the movie adaptation first?", zh: "你寧願先看書，還是先看改編的電影？" }
+                ]
+            },
+            {
+                name: "Random Magic",
+                color: "#FF9F1C", // Tangerine
+                icon: "fa-magic",
+                prompts: [
+                    { en: "If you could switch lives with any person for a day, who would it be?", zh: "如果你能和任何人交換人生一天，你想跟誰換？" },
+                    { en: "If you had to wear a dinosaur costume to school for one day, how would you act?", zh: "如果你必須穿著恐龍裝去學校一天，你會怎麼表現？" },
+                    { en: "What is the weirdest dream you have ever had?", zh: "你做過最奇怪的夢是什麼？" },
+                    { en: "Would you rather be able to control fire or control water?", zh: "你寧願能控制火還是控制水？" }
+                ]
+            }
+        ];
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const placeholder = document.getElementById('placeholder');
+        const promptArea = document.getElementById('promptArea');
+        const categoryLabel = document.getElementById('categoryLabel');
+        const categoryIcon = document.getElementById('categoryIcon');
+        const englishPrompt = document.getElementById('englishPrompt');
+        const translationArea = document.getElementById('translationArea');
+        const chinesePrompt = document.getElementById('chinesePrompt');
+        const translateBtn = document.getElementById('translateBtn');
+        const translateText = document.getElementById('translateText');
+        const nextQuestionBtn = document.getElementById('nextQuestionBtn');
+
+        // State variables
+        let currentRotation = 0;
+        let isSpinning = false;
+        let currentCategoryIndex = -1;
+        let currentPromptIndex = -1;
+
+        function drawWheel() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2;
+            const sliceAngle = (2 * Math.PI) / gameData.length;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < gameData.length; i++) {
+                // Draw slice
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, i * sliceAngle, (i + 1) * sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = gameData[i].color;
+                ctx.fill();
+                
+                // Add border to slices
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // Draw text
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                // Rotate to center of slice
+                ctx.rotate(i * sliceAngle + sliceAngle / 2);
+                
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px "Nunito"';
+                
+                // Shadow for text readability
+                ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+
+                // Move text towards outer edge
+                ctx.fillText(gameData[i].name, radius - 30, 0);
+                
+                ctx.restore();
+            }
+            
+            // Draw center circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 40, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#e5e7eb'; // gray-200
+            ctx.stroke();
+            
+            // Draw center dot
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 15, 0, 2 * Math.PI);
+            ctx.fillStyle = '#4f46e5'; // indigo-600
+            ctx.fill();
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            
+            isSpinning = true;
+            spinBtn.disabled = true;
+            spinBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Spinning...';
+            
+            // Hide previous prompt if exists, show placeholder temporarily
+            promptArea.classList.remove('active');
+            placeholder.style.display = 'block';
+            translationArea.classList.add('hidden'); // Reset translation
+
+            // Calculate rotation
+            // Add minimum 5 full rotations (1800 deg) + random extra rotation
+            const minSpins = 5;
+            const extraDegrees = Math.floor(Math.random() * 360);
+            const totalDegreesToSpin = (minSpins * 360) + extraDegrees;
+            
+            currentRotation += totalDegreesToSpin;
+
+            // Apply rotation via CSS transform
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // Wait for transition to end (matches CSS transition time 3s)
+            setTimeout(() => {
+                isSpinning = false;
+                spinBtn.disabled = false;
+                spinBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> SPIN AGAIN!';
+                
+                determineResult();
+            }, 3000); // 3000ms = 3s
+        }
+
+        function determineResult() {
+            // The marker is at the top (0 degrees or 270 degrees in canvas coordinates, 
+            // but CSS rotate turns the canvas visually).
+            // We need to find what slice is at the top position.
+            
+            // CSS rotate() turns clockwise. 
+            // 0deg on canvas is at 3 o'clock. Top marker is at 12 o'clock (-90deg relative to canvas 0deg).
+            
+            // Total visual rotation normalized to 0-360
+            const normalizedRotation = currentRotation % 360;
+            
+            // Because the canvas rotates clockwise, the point at 12 o'clock moves *backwards* 
+            // through the slices (drawn clockwise starting from 3 o'clock).
+            
+            const sliceAngle = 360 / gameData.length;
+            
+            // Adjust for canvas starting angle (slice 0 starts at 3 o'clock, top is -90 from that)
+            // To find the slice at the top:
+            // Calculate how far the wheel has turned backwards from the top marker
+            let degreesFromTop = (270 - normalizedRotation) % 360;
+            if (degreesFromTop < 0) degreesFromTop += 360;
+
+            // Determine index
+            currentCategoryIndex = Math.floor(degreesFromTop / sliceAngle);
+            
+            showPrompt();
+        }
+
+        function showPrompt() {
+            const category = gameData[currentCategoryIndex];
+            
+            // Select a random prompt from the category
+            currentPromptIndex = Math.floor(Math.random() * category.prompts.length);
+            const prompt = category.prompts[currentPromptIndex];
+
+            // Update DOM
+            placeholder.style.display = 'none';
+            promptArea.classList.add('active');
+            
+            categoryLabel.textContent = category.name;
+            categoryLabel.style.backgroundColor = category.color;
+            
+            categoryIcon.className = `absolute -top-4 -right-4 text-8xl opacity-10 fas ${category.icon}`;
+            categoryIcon.style.color = category.color;
+
+            englishPrompt.textContent = prompt.en;
+            chinesePrompt.textContent = prompt.zh;
+            
+            // Reset UI states
+            translationArea.classList.add('hidden');
+            translateBtn.innerHTML = '<i class="fas fa-language text-lg mr-2"></i> Translate';
+            translateBtn.classList.remove('text-gray-500');
+            translateBtn.classList.add('text-indigo-600');
+            
+            // Show next question button if category has more than 1 question
+            if (category.prompts.length > 1) {
+                nextQuestionBtn.classList.remove('hidden');
+            } else {
+                nextQuestionBtn.classList.add('hidden');
+            }
+        }
+
+        function toggleTranslation() {
+            if (translationArea.classList.contains('hidden')) {
+                translationArea.classList.remove('hidden');
+                translateBtn.innerHTML = '<i class="fas fa-eye-slash text-lg mr-2"></i> Hide Translation';
+                translateBtn.classList.remove('text-indigo-600');
+                translateBtn.classList.add('text-gray-500');
+            } else {
+                translationArea.classList.add('hidden');
+                translateBtn.innerHTML = '<i class="fas fa-language text-lg mr-2"></i> Translate';
+                translateBtn.classList.remove('text-gray-500');
+                translateBtn.classList.add('text-indigo-600');
+            }
+        }
+
+        function showNextQuestion() {
+            const category = gameData[currentCategoryIndex];
+            
+            // Pick a different question
+            let nextIndex;
+            do {
+                nextIndex = Math.floor(Math.random() * category.prompts.length);
+            } while (nextIndex === currentPromptIndex && category.prompts.length > 1);
+            
+            currentPromptIndex = nextIndex;
+            const prompt = category.prompts[currentPromptIndex];
+            
+            // Add a small animation to text change
+            englishPrompt.style.opacity = 0;
+            if(!translationArea.classList.contains('hidden')) {
+                chinesePrompt.style.opacity = 0;
+            }
+            
+            setTimeout(() => {
+                englishPrompt.textContent = prompt.en;
+                chinesePrompt.textContent = prompt.zh;
+                
+                englishPrompt.style.transition = 'opacity 0.3s ease';
+                chinesePrompt.style.transition = 'opacity 0.3s ease';
+                
+                englishPrompt.style.opacity = 1;
+                chinesePrompt.style.opacity = 1;
+            }, 300);
+        }
+
+        // Event Listeners
+        spinBtn.addEventListener('click', spin);
+        translateBtn.addEventListener('click', toggleTranslation);
+        nextQuestionBtn.addEventListener('click', showNextQuestion);
+
+        // Fix for iOS Safari to ensure audio/animations work perfectly on tap
+        document.body.addEventListener('touchstart', function() {}, false);
+
+        // Initialize
+        window.onload = () => {
+            drawWheel();
+            // Trigger a redraw if window resizes to ensure it scales correctly though CSS handles most of it
+            window.addEventListener('resize', drawWheel);
+        };
+
+    </script>
+</body>
+</html>
